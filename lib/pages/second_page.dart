@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tst_flutter/Auth/auth.dart';
 import 'package:tst_flutter/pages/profile_page.dart';
 import 'package:tst_flutter/pages/second_page/first_content.dart';
 import 'package:tst_flutter/pages/second_page/fourth_content.dart';
