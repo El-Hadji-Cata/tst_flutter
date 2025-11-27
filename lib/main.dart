@@ -1,5 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:tst_flutter/Api/fetch_api.dart';
+import 'package:tst_flutter/Auth/auth.dart';
 import 'package:tst_flutter/firebase_options.dart';
 import 'package:tst_flutter/pages/home_page.dart';
 import 'package:tst_flutter/pages/second_page.dart';
@@ -29,7 +32,8 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       theme: themeData,
       title: 'Flutter Demo',
-      home: SecondPage(),
+      home: Auth(),
+       //SecondPage()   Auth()
     );
   }
 }
