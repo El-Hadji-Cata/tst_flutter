@@ -24,6 +24,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final ThemeData themeData = ThemeData(brightness: isDark ? Brightness.dark : Brightness.light);
+    const serverId = "3FaS3lzbJ6AzznZ310g8";
+    const authorId = "x4S39GlVDpftERhBX3eJnhpZ0n42";
+    const authorName = "Hugo";
+    final authorAvatarUrl = "https://w7.pngwing.com/pngs/340/946/png-transparent-avatar-user-computer-icons-software-developer-avatar-child-face-heroes-thumbnail.png";
+    const channelId = "user123";
+
     return MaterialApp(
 
       theme: themeData,
@@ -112,14 +118,45 @@ class _HomePageState extends State<HomePage> {
                         Padding(
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              fetchMessageForChannel(channelId, serverId);
+                            },
                             child: const Text("Messages"),
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              addMessage(serverId: serverId, authorId: authorId, authorName: authorName, authorAvatarUrl: authorAvatarUrl, channelId: channelId, content: "Test message avatar change");
+                            },
+                            child: const Icon(Icons.add),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              fetchReactionsForMessage("x4S39GlVDpftERhBX3eJnhpZ0n42", "👍", "NKIQxGkMmLmjkfniaErw");
+                            },
+                            child: const Text("Réactions"),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              addReaction(userId: "x4S39GlVDpftERhBX3eJnhpZ0n42", emoji: "👍", messageId: "NKIQxGkMmLmjkfniaErw");
+                              /*Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const AddServer()),
+                              );*/
+                            },
                             child: const Icon(Icons.add),
                           ),
                         ),

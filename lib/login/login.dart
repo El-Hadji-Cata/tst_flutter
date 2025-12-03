@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:tst_flutter/Api/fetch_api.dart';
 import 'package:tst_flutter/pages/home_page.dart';
+import 'package:tst_flutter/pages/home_page_bis.dart';
 
 class Login extends StatefulWidget {
   const Login({Key? key}) : super(key: key);
@@ -70,19 +71,18 @@ class _LoginState extends State<Login> {
                         fontSize: 20,
                       ),
                     ),
-                    onPressed: () async { // Rendre la fonction asynchrone
+                    onPressed: () async {
                       if(emailController.text.isNotEmpty && passwordController.text.length > 6)
                         {
                           await loginUser();
-                          // Après une connexion réussie, l'utilisateur est disponible via FirebaseAuth.instance.currentUser
+
                           final user = FirebaseAuth.instance.currentUser;
                           if (user != null && mounted) {
-                            // Vous pouvez maintenant accéder aux informations de l'utilisateur
+
                             print("Utilisateur connecté: ${user.uid}");
                             print("Email: ${user.email}");
 
 
-                            // Naviguer vers la page d'accueil
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute(builder: (context) => const HomePage())
                             );
@@ -108,24 +108,21 @@ class _LoginState extends State<Login> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 20.0),
                   child: TextButton(
-                    onPressed: () async { // Rendre la fonction asynchrone
+                    onPressed: () async {
                     try {
                       final auth = FirebaseAuth.instance;
                       final userCredential = await auth.createUserWithEmailAndPassword(
                           email: emailController.text,
                           password: passwordController.text,
                       );
-                      // Après une inscription réussie, l'utilisateur est disponible
                       final user = userCredential.user;
                        if (user != null && mounted) {
                           print('Nouvel utilisateur inscrit: ${user.uid}');
-                          // Naviguer vers la page d'accueil
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(builder: (context) => const HomePage())
                           );
                         }
                     } on FirebaseAuthException catch (e) {
-                        // Gérer les erreurs (ex: email déjà utilisé)
                         print("Erreur d'inscription: ${e.message}");
                     }
                   },
@@ -182,8 +179,7 @@ class _LoginState extends State<Login> {
           password: passwordController.text
       );
     } on FirebaseAuthException catch (e) {
-      // Idéalement, affichez une erreur à l'utilisateur ici (ex: avec un SnackBar)
-      print("Erreur de connexion: \${e.message}");
+      print("Erreur de connexion: ${e.message}");
     }
   }
 
