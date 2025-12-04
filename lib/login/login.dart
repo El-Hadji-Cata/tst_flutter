@@ -84,7 +84,7 @@ class _LoginState extends State<Login> {
 
 
                             Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (context) => const HomePage())
+                              MaterialPageRoute(builder: (context) => const HomePageBis())
                             );
                           }
                         }
@@ -119,7 +119,7 @@ class _LoginState extends State<Login> {
                        if (user != null && mounted) {
                           print('Nouvel utilisateur inscrit: ${user.uid}');
                           Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (context) => const HomePage())
+                            MaterialPageRoute(builder: (context) => const HomePageBis())
                           );
                         }
                     } on FirebaseAuthException catch (e) {

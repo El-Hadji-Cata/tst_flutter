@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
                             onPressed: () {
-                              fetchChannelsForServer("4dy0sgHXnSdmvQOJezBo", "user123");
+                              //fetchChannelsForServer("4dy0sgHXnSdmvQOJezBo", "user123");
                             },
                             child: const Text("Canaux"),
                           ),
@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
                             onPressed: () {
-                              fetchMessageForChannel(channelId, serverId);
+                              //fetchMessageForChannel(channelId, serverId);
                             },
                             child: const Text("Messages"),
                           ),
@@ -128,7 +128,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
                             onPressed: () {
-                              addMessage(serverId: serverId, authorId: authorId, authorName: authorName, authorAvatarUrl: authorAvatarUrl, channelId: channelId, content: "Test message avatar change");
+                              //addMessage(serverId: serverId, authorId: authorId, authorName: authorName, authorAvatarUrl: authorAvatarUrl, channelId: channelId, content: "Test message avatar change");
                             },
                             child: const Icon(Icons.add),
                           ),
@@ -142,7 +142,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
                             onPressed: () {
-                              fetchReactionsForMessage("x4S39GlVDpftERhBX3eJnhpZ0n42", "👍", "NKIQxGkMmLmjkfniaErw");
+                              //fetchReactionsForMessage("x4S39GlVDpftERhBX3eJnhpZ0n42", "👍", "NKIQxGkMmLmjkfniaErw");
                             },
                             child: const Text("Réactions"),
                           ),
@@ -151,7 +151,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(10.0),
                           child: ElevatedButton(
                             onPressed: () {
-                              addReaction(userId: "x4S39GlVDpftERhBX3eJnhpZ0n42", emoji: "👍", messageId: "NKIQxGkMmLmjkfniaErw");
+                              //addReaction(userId: "x4S39GlVDpftERhBX3eJnhpZ0n42", emoji: "👍", messageId: "NKIQxGkMmLmjkfniaErw");
                               /*Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => const AddServer()),

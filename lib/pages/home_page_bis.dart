@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:tst_flutter/Api/fetch_api.dart'; // Importation nécessaire
 
 class HomePageBis extends StatefulWidget {
   const HomePageBis({super.key});
@@ -12,39 +13,74 @@ class _HomePageBisState extends State<HomePageBis> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Utilisation des couleurs sombres de Discord
       backgroundColor: const Color(0xFF36393F),
       body: Row(
         children: [
-          // 1. Colonne des Serveurs (gauche)
           _buildServerList(),
 
-          // 2. Colonne des Salons (centre-gauche)
           _buildChannelList(),
-
-          // 3. Contenu Principal / Chat (droite)
           _buildMainContent(),
         ],
       ),
     );
   }
 
-  /// Construit la colonne de gauche avec la liste des serveurs.
+  /// Construit la colonne de gauche en appelant l'API pour récupérer les serveurs.
   Widget _buildServerList() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // Si l'utilisateur n'est pas connecté, on affiche une colonne vide
+      return Container(width: 70, color: const Color(0xFF202225));
+    }
+
     return Container(
       width: 70,
-      color: const Color(0xFF202225), // Arrière-plan de la liste des serveurs
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          _buildServerIcon(Icons.discord, isSelected: true),
-          _buildServerIcon(Icons.games),
-          _buildServerIcon(Icons.music_note),
-          _buildServerIcon(Icons.add, isAddButton: true),
-        ],
+      color: const Color(0xFF202225),
+      child: FutureBuilder<List<dynamic>>(
+        // On appelle la fonction qui retourne la liste des serveurs
+        future: fetchServersForUser(user.uid),
+        builder: (context, snapshot) {
+          // 1. En cours de chargement
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // 2. En cas d'erreur
+          if (snapshot.hasError) {
+            return const Center(child: Icon(Icons.error, color: Colors.red));
+          }
+
+          // 3. Si les données sont reçues
+          if (snapshot.hasData) {
+            final servers = snapshot.data!;
+
+
+            if (servers.isEmpty) {
+              return const Center(child: Text("Aucun serveur", style: TextStyle(color: Colors.grey, fontSize: 10), textAlign: TextAlign.center,));
+            }
+            
+            // On construit la liste des serveurs à partir des données de l'API
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: servers.length,
+              itemBuilder: (context, index) {
+                final server = servers[index];
+                // On passe l'objet serveur complet à la fonction de construction de l'icône
+                return _buildServerIcon(server: server);
+              },
+            );
+          }
+
+          // Par défaut (ne devrait pas arriver)
+          return const Center(child: Icon(Icons.error, color: Colors.orange));
+        },
       ),
+      
     );
   }
+
+  // ... (le reste de votre code reste identique)
 
   /// Construit la colonne du milieu avec les salons et le panneau utilisateur.
   Widget _buildChannelList() {
@@ -60,7 +96,7 @@ class _HomePageBisState extends State<HomePageBis> {
               border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.2))),
             ),
             child: const Text(
-              'Mon Serveur Flutter',
+              'Mon Canal Flutter',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
@@ -70,12 +106,12 @@ class _HomePageBisState extends State<HomePageBis> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                _buildChannelCategory('SALONS TEXTUELS'),
+                /*_buildChannelCategory('SALONS TEXTUELS'),
                 _buildChannelItem('général', isActive: true),
                 _buildChannelItem('questions'),
                 _buildChannelCategory('SALONS VOCAUX'),
                 _buildChannelItem('Lobby', isVoice: true),
-                _buildChannelItem('Gaming', isVoice: true),
+                _buildChannelItem('Gaming', isVoice: true),*/
               ],
             ),
           ),
@@ -139,16 +175,27 @@ class _HomePageBisState extends State<HomePageBis> {
       ),
     );
   }
+  
+  Widget _buildServerIcon({required Map<String, dynamic> server, bool isSelected = false}) {
+    final String? imageUrl = server['imageUrl'];
+    final String serverName = server['name'] ?? '';
 
-  // --- Widgets d'aide pour la construction de l'UI ---
-
-  Widget _buildServerIcon(IconData icon, {bool isSelected = false, bool isAddButton = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: CircleAvatar(
         radius: 25,
         backgroundColor: isSelected ? Colors.deepPurple : const Color(0xFF36393F),
-        child: Icon(icon, color: isAddButton ? Colors.green : Colors.white),
+        // Utilise NetworkImage si l'URL est disponible, sinon reste vide.
+        backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+            ? NetworkImage(imageUrl)
+            : null,
+        // Si pas d'image, affiche la première lettre du nom.
+        child: (imageUrl == null || imageUrl.isEmpty)
+            ? Text(
+                serverName.isNotEmpty ? serverName[0].toUpperCase() : '',
+                style: const TextStyle(color: Colors.white, fontSize: 24),
+              )
+            : null,
       ),
     );
   }
@@ -178,14 +225,14 @@ class _HomePageBisState extends State<HomePageBis> {
     final user = FirebaseAuth.instance.currentUser;
     return Container(
       padding: const EdgeInsets.all(8),
-      color: const Color(0xFF292B2F), // Couleur de fond du panneau utilisateur
+      color: const Color(0xFF292B2F),
       child: Row(
         children: [
-          const CircleAvatar(radius: 20, backgroundColor: Colors.grey), // Remplacer par l'avatar de l'utilisateur
+          const CircleAvatar(radius: 20, backgroundColor: Colors.grey),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              user?.email ?? 'Utilisateur', // Affiche l'email ou un texte par défaut
+              user?.email ?? 'Utilisateur',
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               overflow: TextOverflow.ellipsis,
             ),
