@@ -1,8 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:tst_flutter/Api/fetch_api.dart';
 
 class AddChannel extends StatefulWidget {
-  const AddChannel({Key? key}) : super(key: key);
+  final String serverId;
+
+  const AddChannel({Key? key, required this.serverId}) : super(key: key);
 
   @override
   _AddChannelState createState() => _AddChannelState();
@@ -11,24 +14,21 @@ class AddChannel extends StatefulWidget {
 class _AddChannelState extends State<AddChannel> {
 
   final _formKey = GlobalKey<FormState>();
-
   final nameChannelController = TextEditingController();
-  final idController = TextEditingController();
 
   @override
   void dispose() {
-    // TODO: implement dispose
-    super.dispose();
-
     nameChannelController.dispose();
-    idController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Ajouter un Channel"),
+        title: const Text("Ajouter un Canal"),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -36,69 +36,53 @@ class _AddChannelState extends State<AddChannel> {
           key: _formKey,
           child: Column(
             children: [
-              Container(
-                margin: EdgeInsets.only(bottom: 10),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Nom du channel',
-                    hintText: 'Entrez le nom du channel',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez completer les champs';
-                    }
-                    return null;
-                  },
-                  controller: nameChannelController,
+              TextFormField(
+                controller: nameChannelController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du canal',
+                  border: OutlineInputBorder(),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez compléter le champ';
+                  }
+                  return null;
+                },
               ),
 
-              Container(
-                margin: EdgeInsets.only(bottom: 10),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Id du serveur',
-                    hintText: 'Entrez l Id du serveur',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez completer les champs';
-                    }
-                    return null;
-                  },
-                  controller: idController,
-                ),
-              ),
+              const SizedBox(height: 20),
 
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if(_formKey.currentState!.validate()) {
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate() && user != null) {
 
                       final nameChannel = nameChannelController.text;
-                      final idServer = idController.text;
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Envoi en cours ....."),
-                        ),
+                        const SnackBar(content: Text("Création du canal en cours...")),
                       );
-                      print("Nom du channel: $nameChannel");
-                      print("Id du serveur: $idServer");
 
-                      addChannel(serverId: idServer, name: nameChannel);
+                      final newChannel = await addChannel(
+                        serverId: widget.serverId,
+                        name: nameChannel,
+                        userId: user.uid, // CORRECTION : On passe le userId
+                      );
 
-                      Navigator.pop(context);
+                      if (newChannel != null && mounted) {
+                        Navigator.pop(context, true);
+                      } else if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Erreur lors de la création du canal.")),
+                        );
+                      }
                     }
                   },
-                  child: Text("Envoyer"),
+                  child: const Text("Créer"),
                 ),
               ),
-
             ],
           ),
         ),

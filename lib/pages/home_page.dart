@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => const AddChannel()),
+                                MaterialPageRoute(builder: (context) => const AddChannel(serverId: '',)),
                               );
                               //addChannel(serverId: "abc123", name: "gaming");
                             },

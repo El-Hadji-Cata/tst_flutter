@@ -1,6 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:tst_flutter/Api/fetch_api.dart'; // Importation nécessaire
+import 'package:tst_flutter/Api/channel/add_channel.dart';
+import 'package:tst_flutter/Api/fetch_api.dart';
+import 'package:tst_flutter/Api/server/add_server.dart';
+
+import '../login/login.dart';
 
 class HomePageBis extends StatefulWidget {
   const HomePageBis({super.key});
@@ -10,235 +14,358 @@ class HomePageBis extends StatefulWidget {
 }
 
 class _HomePageBisState extends State<HomePageBis> {
+  String? _selectedServerId;
+  String? _selectedChannelId;
+  late Future<List<dynamic>> _serversFuture;
+  final _messageController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServers();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  void _loadServers() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _serversFuture = fetchServersForUser(user.uid);
+    } else {
+      _serversFuture = Future.value([]);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       backgroundColor: const Color(0xFF36393F),
       body: Row(
         children: [
           _buildServerList(),
-
-          _buildChannelList(),
-          _buildMainContent(),
+          _buildChannelList(serverId: _selectedServerId, userId: user?.uid),
+          _buildMainContent(serverId: _selectedServerId, channelId: _selectedChannelId, userId: user?.uid),
         ],
       ),
     );
   }
 
-  /// Construit la colonne de gauche en appelant l'API pour récupérer les serveurs.
   Widget _buildServerList() {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      // Si l'utilisateur n'est pas connecté, on affiche une colonne vide
-      return Container(width: 70, color: const Color(0xFF202225));
-    }
-
     return Container(
-      width: 70,
-      color: const Color(0xFF202225),
-      child: FutureBuilder<List<dynamic>>(
-        // On appelle la fonction qui retourne la liste des serveurs
-        future: fetchServersForUser(user.uid),
-        builder: (context, snapshot) {
-          // 1. En cours de chargement
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // 2. En cas d'erreur
-          if (snapshot.hasError) {
-            return const Center(child: Icon(Icons.error, color: Colors.red));
-          }
-
-          // 3. Si les données sont reçues
-          if (snapshot.hasData) {
-            final servers = snapshot.data!;
-
-
-            if (servers.isEmpty) {
-              return const Center(child: Text("Aucun serveur", style: TextStyle(color: Colors.grey, fontSize: 10), textAlign: TextAlign.center,));
-            }
-            
-            // On construit la liste des serveurs à partir des données de l'API
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: servers.length,
-              itemBuilder: (context, index) {
-                final server = servers[index];
-                // On passe l'objet serveur complet à la fonction de construction de l'icône
-                return _buildServerIcon(server: server);
-              },
-            );
-          }
-
-          // Par défaut (ne devrait pas arriver)
-          return const Center(child: Icon(Icons.error, color: Colors.orange));
-        },
-      ),
-      
-    );
+        width: 70,
+        color: const Color(0xFF202225),
+        child: FutureBuilder<List<dynamic>>(
+            future: _serversFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return const Center(child: Icon(Icons.error, color: Colors.red));
+              }
+              if (snapshot.hasData) {
+                final servers = snapshot.data!;
+                if (_selectedServerId == null && servers.isNotEmpty) {
+                  _selectedServerId = servers.first['id'];
+                }
+                return ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: servers.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == servers.length) {
+                        return _buildAddServerButton();
+                      }
+                      final server = servers[index];
+                      final isSelected = server['id'] == _selectedServerId;
+                      return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (_selectedServerId != server['id']) {
+                                _selectedChannelId = null;
+                              }
+                              _selectedServerId = server['id'];
+                            });
+                          },
+                          child: _buildServerIcon(server: server, isSelected: isSelected));
+                    });
+              }
+              return const Center(child: Icon(Icons.error, color: Colors.orange));
+            }));
   }
 
-  // ... (le reste de votre code reste identique)
-
-  /// Construit la colonne du milieu avec les salons et le panneau utilisateur.
-  Widget _buildChannelList() {
-    return Container(
-      width: 240,
-      color: const Color(0xFF2F3136), // Arrière-plan de la liste des salons
-      child: Column(
-        children: [
-          // Nom du serveur en haut
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.2))),
-            ),
-            child: const Text(
-              'Mon Canal Flutter',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-
-          // Liste des salons
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                /*_buildChannelCategory('SALONS TEXTUELS'),
-                _buildChannelItem('général', isActive: true),
-                _buildChannelItem('questions'),
-                _buildChannelCategory('SALONS VOCAUX'),
-                _buildChannelItem('Lobby', isVoice: true),
-                _buildChannelItem('Gaming', isVoice: true),*/
-              ],
-            ),
-          ),
-
-          // Panneau utilisateur en bas
-          _buildUserPanel(),
-        ],
-      ),
-    );
+  Widget _buildAddServerButton() {
+    return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: InkWell(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddServer()),
+              );
+              if (result == true) {
+                setState(() {
+                  _loadServers();
+                });
+              }
+            },
+            child: const CircleAvatar(
+                radius: 25,
+                backgroundColor: Color(0xFF36393F),
+                child: Icon(Icons.add, color: Colors.green, size: 30))));
   }
 
-  /// Construit la zone de contenu principale à droite.
-  Widget _buildMainContent() {
-    return Expanded(
-      child: Column(
-        children: [
-          // Barre supérieure avec le nom du salon
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.2))),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.tag, color: Colors.grey),
-                SizedBox(width: 8),
-                Text('général', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-
-          // Zone des messages (à remplir)
-          const Expanded(
-            child: Center(
-              child: Text('Les messages du chat apparaîtront ici.', style: TextStyle(color: Colors.grey)),
-            ),
-          ),
-
-          // Champ de saisie de message
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF40444B),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const TextField(
-                style: TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Envoyer un message à #général',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
-                  suffixIcon: Icon(Icons.send, color: Colors.grey),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
   Widget _buildServerIcon({required Map<String, dynamic> server, bool isSelected = false}) {
     final String? imageUrl = server['imageUrl'];
     final String serverName = server['name'] ?? '';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: CircleAvatar(
-        radius: 25,
-        backgroundColor: isSelected ? Colors.deepPurple : const Color(0xFF36393F),
-        // Utilise NetworkImage si l'URL est disponible, sinon reste vide.
-        backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
-            ? NetworkImage(imageUrl)
-            : null,
-        // Si pas d'image, affiche la première lettre du nom.
-        child: (imageUrl == null || imageUrl.isEmpty)
-            ? Text(
-                serverName.isNotEmpty ? serverName[0].toUpperCase() : '',
-                style: const TextStyle(color: Colors.white, fontSize: 24),
-              )
-            : null,
-      ),
+    final Widget fallbackIcon = Text(
+      serverName.isNotEmpty ? serverName[0].toUpperCase() : '',
+      style: const TextStyle(color: Colors.white, fontSize: 24),
     );
+    return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: CircleAvatar(
+            radius: 25,
+            backgroundColor: isSelected ? Colors.deepPurple : const Color(0xFF36393F),
+            child: (imageUrl != null && imageUrl.isNotEmpty)
+                ? ClipOval(
+                    child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: 50,
+                    height: 50,
+                    errorBuilder: (context, error, stackTrace) => fallbackIcon,
+                  ))
+                : fallbackIcon));
   }
 
-  Widget _buildChannelCategory(String name) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(name, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-    );
-  }
+  Widget _buildChannelList({String? serverId, String? userId}) {
+    if (serverId == null || userId == null) {
+      return Container(
+          width: 240,
+          color: const Color(0xFF2B2D2B),
+          child: const Center(child: Text('Sélectionnez un serveur', style: TextStyle(color: Colors.grey))));
+    }
 
-  Widget _buildChannelItem(String name, {bool isActive = false, bool isVoice = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isActive ? Colors.grey.withOpacity(0.2) : Colors.transparent,
-      child: Row(
-        children: [
+        width: 240,
+        color: const Color(0xFF2B2D2B),
+        child: Column(children: [
+          Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.2)))),
+              child: const Text('Canaux', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+          Expanded(
+              child: FutureBuilder<List<dynamic>>(
+                  future: fetchChannelsForServer(serverId, userId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('Erreur de chargement', style: TextStyle(color: Colors.red)));
+                    }
+                    if (snapshot.hasData) {
+                      final channels = snapshot.data!;
+                      if (_selectedChannelId == null && channels.isNotEmpty) {
+                        _selectedChannelId = channels.first['id'];
+                      }
+                      return ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: channels.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == channels.length) {
+                              return _buildAddChannelButton(serverId);
+                            }
+                            final channel = channels[index];
+                            final isSelected = channel['id'] == _selectedChannelId;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedChannelId = channel['id'];
+                                });
+                              },
+                              child: _buildChannelItem(channel: channel, isSelected: isSelected),
+                            );
+                          });
+                    }
+                    return const Center(child: Text('Aucun canal', style: TextStyle(color: Colors.grey)));
+                  })),
+          _buildUserPanel(),
+        ]));
+  }
+
+  Widget _buildAddChannelButton(String serverId) {
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: InkWell(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddChannel(serverId: serverId),
+                ),
+              );
+              if (result == true) {
+                setState(() {});
+              }
+            },
+            child: const Row(children: [
+              Icon(Icons.add, color: Colors.grey, size: 20),
+              SizedBox(width: 8),
+              Text('Ajouter un canal', style: TextStyle(color: Colors.grey))
+            ])));
+  }
+
+  Widget _buildChannelItem({required Map<String, dynamic> channel, bool isSelected = false}) {
+    final String name = channel['name'] ?? 'canal sans nom';
+    final isVoice = channel['type'] == 'voice';
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: isSelected ? Colors.grey.withOpacity(0.3) : Colors.transparent,
+        child: Row(children: [
           Icon(isVoice ? Icons.volume_up : Icons.tag, color: Colors.grey, size: 20),
           const SizedBox(width: 8),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 16)),
-        ],
-      ),
-    );
+          Text(name, style: const TextStyle(color: Colors.white, fontSize: 16))
+        ]));
   }
 
   Widget _buildUserPanel() {
     final user = FirebaseAuth.instance.currentUser;
     return Container(
-      padding: const EdgeInsets.all(8),
-      color: const Color(0xFF292B2F),
-      child: Row(
-        children: [
-          const CircleAvatar(radius: 20, backgroundColor: Colors.grey),
+        padding: const EdgeInsets.all(8),
+        color: const Color(0xFF292B2F),
+        child: Row(children: [
+          const CircleAvatar(radius: 20, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              user?.email ?? 'Utilisateur',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              overflow: TextOverflow.ellipsis,
+              child: Text(
+            user?.email ?? 'Utilisateur',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+          )),
+          ElevatedButton(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const Login()),
+                    (Route<dynamic> route) => false,
+                  );
+                }
+              },
+              child: const Icon(Icons.logout, color: Colors.redAccent))
+        ]));
+  }
+
+
+  Widget _buildMainContent({String? serverId, String? channelId, String? userId}) {
+    if (serverId == null || channelId == null || userId == null) {
+      return const Expanded(
+          child: Center(
+        child: Text('Sélectionnez un canal pour voir les messages', style: TextStyle(color: Colors.grey)),
+      ));
+    }
+
+    return Expanded(
+        child: Column(children: [
+      Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.black.withOpacity(0.2)))),
+          child: Row(children: [
+            const Icon(Icons.tag, color: Colors.white70),
+            const SizedBox(width: 8),
+            Text('Canal', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          ])),
+      Expanded(
+        child: FutureBuilder<List<dynamic>>(
+          future: fetchMessagesForChannel(serverId, channelId, userId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const Center(child: Text('Erreur de chargement des messages', style: TextStyle(color: Colors.red)));
+            }
+            if (snapshot.hasData) {
+              final messages = snapshot.data!;
+              if (messages.isEmpty) {
+                return const Center(child: Text('Soyez le premier à envoyer un message !', style: TextStyle(color: Colors.grey)));
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.all(8.0),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  return _buildMessageItem(message);
+                },
+              );
+            }
+            return const Center(child: Text('Aucun message', style: TextStyle(color: Colors.grey)));
+          },
+        ),
+      ),
+      Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(color: const Color(0xFF40444B), borderRadius: BorderRadius.circular(20)),
+              child: TextField(
+                  controller: _messageController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                      hintText: 'Envoyer un message',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.send, color: Colors.grey),
+                        onPressed: () async {
+                          final content = _messageController.text;
+                          if (content.isNotEmpty) {
+                            final success = await addMessageToChannel(
+                              serverId: serverId,
+                              channelId: channelId,
+                              userId: userId,
+                              content: content,
+                            );
+
+                            if (success != null) {
+                              _messageController.clear();
+                              setState(() {});
+                            }
+                          }
+                        },
+                      )))))
+    ]));
+  }
+
+  Widget _buildMessageItem(Map<String, dynamic> message) {
+    final String author = message['author']?['username'] ?? 'Utilisateur inconnu';
+    final String content = message['content'] ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CircleAvatar(radius: 20, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(author, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(content, style: const TextStyle(color: Colors.white70)),
+              ],
             ),
           ),
-          IconButton(icon: const Icon(Icons.mic, color: Colors.grey), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.headset, color: Colors.grey), onPressed: () {}),
         ],
       ),
     );

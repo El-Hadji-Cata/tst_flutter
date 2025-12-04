@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:tst_flutter/Api/fetch_api.dart';
 
@@ -11,97 +12,102 @@ class AddServer extends StatefulWidget {
 class _AddServerState extends State<AddServer> {
 
   final _formKey = GlobalKey<FormState>();
-
   final nameServerController = TextEditingController();
-  final ownerIdController = TextEditingController();
+  final imageUrlController = TextEditingController();
+
 
   @override
   void dispose() {
-    // TODO: implement dispose
-    super.dispose();
-
     nameServerController.dispose();
-    ownerIdController.dispose();
+    imageUrlController.dispose();
+    super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-      title: const Text("Ajouter un serveur"),
-        ),
+        title: const Text("Ajouter un serveur"),
+      ),
       body: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
           child: Column(
             children: [
-              Container(
-                margin: EdgeInsets.only(bottom: 10),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Nom du serveur',
-                    hintText: 'Entrez le nom du serveur',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez completer les champs';
-                    }
-                    return null;
-                  },
-                  controller: nameServerController,
+              TextFormField(
+                controller: nameServerController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du serveur',
+                  border: OutlineInputBorder(),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un nom pour le serveur';
+                  }
+                  return null;
+                },
               ),
-
-              Container(
-                margin: EdgeInsets.only(bottom: 10),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'NOwnerId du serveur',
-                    hintText: 'Entrez le ownerId du serveur',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez completer les champs';
-                    }
-                    return null;
-                  },
-                  controller: ownerIdController,
+              TextFormField(
+                controller: imageUrlController,
+                decoration: const InputDecoration(
+                  labelText: "Url de l'image du serveur",
+                  border: OutlineInputBorder(),
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un UrlImage pour le serveur';
+                  }
+                  return null;
+                },
               ),
-
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                    onPressed: () {
-                      if(_formKey.currentState!.validate()) {
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate()) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Création du serveur en cours...")),
+                      );
 
-                        final nameServer = nameServerController.text;
-                        final ownerId = ownerIdController.text;
-
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Envoi en cours ....."),
-                            ),
+                           const SnackBar(content: Text("Erreur : Utilisateur non connecté.")),
                         );
-                        print("Nom du serveur: $nameServer");
-                        print("OwnerId du serveur: $ownerId");
-
-                        addServer(name: nameServer, ownerId: ownerId);
-                        Navigator.pop(context);
+                        return;
                       }
-                    },
-                    child: Text("Envoyer"),
+
+                      final serverName = nameServerController.text;
+                      final imageUrl = imageUrlController.text;
+                      
+                      // Appeler l'API et attendre le résultat
+                      final newServer = await addServer(
+                        name: serverName,
+                        ownerId: user.uid,
+                        imageUrl: imageUrl,
+                      );
+
+                      // Si la création a réussi et que le widget est toujours monté
+                      if (newServer != null && mounted) {
+                        // Fermer cette page et renvoyer 'true' à la page précédente
+                        Navigator.pop(context, true);
+                      } else if (mounted) {
+                        // Afficher un message d'erreur si la création a échoué
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Erreur : La création du serveur a échoué.")),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text("Créer le serveur"),
                 ),
               ),
-
             ],
           ),
-      ),
+        ),
       ),
     );
   }
