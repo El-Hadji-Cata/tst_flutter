@@ -49,7 +49,7 @@ class _HomePageBisState extends State<HomePageBis> {
         children: [
           _buildServerList(),
           _buildChannelList(serverId: _selectedServerId, userId: user?.uid),
-          _buildMainContent(serverId: _selectedServerId, channelId: _selectedChannelId, userId: user?.uid),
+          _buildMainContent(serverId: _selectedServerId, channelId: _selectedChannelId, user: user),
         ],
       ),
     );
@@ -263,9 +263,8 @@ class _HomePageBisState extends State<HomePageBis> {
         ]));
   }
 
-
-  Widget _buildMainContent({String? serverId, String? channelId, String? userId}) {
-    if (serverId == null || channelId == null || userId == null) {
+  Widget _buildMainContent({String? serverId, String? channelId, User? user}) {
+    if (serverId == null || channelId == null || user == null) {
       return const Expanded(
           child: Center(
         child: Text('Sélectionnez un canal pour voir les messages', style: TextStyle(color: Colors.grey)),
@@ -285,7 +284,7 @@ class _HomePageBisState extends State<HomePageBis> {
           ])),
       Expanded(
         child: FutureBuilder<List<dynamic>>(
-          future: fetchMessagesForChannel(serverId, channelId, userId),
+          future: fetchMessagesForChannel(serverId, channelId, user.uid),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -303,7 +302,7 @@ class _HomePageBisState extends State<HomePageBis> {
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final message = messages[index];
-                  return _buildMessageItem(message);
+                  return MessageItem(message: message, currentUser: user);
                 },
               );
             }
@@ -331,7 +330,8 @@ class _HomePageBisState extends State<HomePageBis> {
                             final success = await addMessageToChannel(
                               serverId: serverId,
                               channelId: channelId,
-                              userId: userId,
+                              authorId: user.uid,
+                              authorName: user.displayName ?? user.email ?? 'Utilisateur Anonyme',
                               content: content,
                             );
 
@@ -344,29 +344,179 @@ class _HomePageBisState extends State<HomePageBis> {
                       )))))
     ]));
   }
+}
 
-  Widget _buildMessageItem(Map<String, dynamic> message) {
-    final String author = message['author']?['username'] ?? 'Utilisateur inconnu';
-    final String content = message['content'] ?? '';
+// --- Nouveau Widget pour un item de message ---
+
+class MessageItem extends StatefulWidget {
+  final Map<String, dynamic> message;
+  final User currentUser;
+
+  const MessageItem({Key? key, required this.message, required this.currentUser}) : super(key: key);
+
+  @override
+  State<MessageItem> createState() => _MessageItemState();
+}
+
+class _MessageItemState extends State<MessageItem> {
+  late Future<Map<String, dynamic>> _reactionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReactions();
+  }
+
+  void _loadReactions() {
+    setState(() {
+      _reactionsFuture = fetchReactionsForMessage(widget.message['id']);
+    });
+  }
+
+  void _handleReaction(String emoji) async {
+    final success = await addReactionToMessage(
+      messageId: widget.message['id'],
+      userId: widget.currentUser.uid,
+      emoji: emoji,
+    );
+    if (success) {
+      _loadReactions();
+    }
+  }
+
+  void _showReactionPicker() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ajouter une réaction'),
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: ['👍', '❤️', '😂', '😢', '😮'].map((emoji) {
+            return TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleReaction(emoji);
+              },
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String authorName = widget.message['author']?['username'] ?? 'Utilisateur inconnu';
+    final String? authorAvatarUrl = widget.message['author']?['avatarUrl'];
+    final String content = widget.message['content'] ?? '';
+
+    final Widget fallbackAvatar = const CircleAvatar(
+      radius: 20,
+      backgroundColor: Colors.grey,
+      child: Icon(Icons.person, color: Colors.white),
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const CircleAvatar(radius: 20, backgroundColor: Colors.grey, child: Icon(Icons.person, color: Colors.white)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(author, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(content, style: const TextStyle(color: Colors.white70)),
-              ],
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.grey,
+                child: (authorAvatarUrl != null && authorAvatarUrl.isNotEmpty)
+                    ? ClipOval(
+                        child: Image.network(
+                          authorAvatarUrl,
+                          fit: BoxFit.cover,
+                          width: 40,
+                          height: 40,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person, color: Colors.white);
+                          },
+                        ),
+                      )
+                    : const Icon(Icons.person, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(authorName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(content, style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FutureBuilder<Map<String, dynamic>>(
+            future: _reactionsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(height: 20);
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return _buildAddReactionButton();
+              }
+
+              final reactions = snapshot.data!;
+              return Wrap(
+                spacing: 8.0,
+                children: [
+                  ...reactions.entries.map((entry) {
+                    final emoji = entry.key;
+                    final reactionData = entry.value;
+                    final count = reactionData['count'] as int;
+                    final users = List<String>.from(reactionData['users'] ?? []);
+                    final hasReacted = users.contains(widget.currentUser.uid);
+
+                    return GestureDetector(
+                      onTap: () async {
+                        if (hasReacted) {
+                          await removeReactionFromMessage(
+                            messageId: widget.message['id'],
+                            userId: widget.currentUser.uid,
+                            emoji: emoji,
+                          );
+                        } else {
+                          await addReactionToMessage(
+                            messageId: widget.message['id'],
+                            userId: widget.currentUser.uid,
+                            emoji: emoji,
+                          );
+                        }
+                        _loadReactions();
+                      },
+                      child: Chip(
+                        backgroundColor: hasReacted ? Colors.blue.withOpacity(0.5) : const Color(0xFF40444B),
+                        label: Text('$emoji $count'),
+                        labelStyle: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }),
+                  _buildAddReactionButton(),
+                ],
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAddReactionButton() {
+    return InkWell(
+      onTap: _showReactionPicker,
+      child: const Chip(
+        label: Icon(Icons.add_reaction_outlined, size: 16, color: Colors.grey),
+        backgroundColor: Color(0xFF40444B),
       ),
     );
   }

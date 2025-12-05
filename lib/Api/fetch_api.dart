@@ -101,8 +101,8 @@ Future<List<dynamic>> fetchChannelsForServer(String serverId, String userId) asy
 
     if (response.statusCode == 200) {
       final data = convert.json.decode(response.body);
-      if (data != null ) {
-        print('Canaux reçus: ${data}');
+      if (data is List) {
+        print('Canaux reçus: ${data.length}');
         return data;
       } else {
         print('Pas de données reçues ou format incorrect.');
@@ -184,17 +184,20 @@ Future<List<dynamic>> fetchMessagesForChannel(String serverId, String channelId,
 Future<Map<String, dynamic>?> addMessageToChannel({
   required String serverId,
   required String channelId,
-  required String userId,
+  required String authorId,
+  required String authorName,
   required String content,
 }) async {
   try {
     print("Envoi du message au canal : ${channelId}");
+    // CORRECTION : Suppression du \ qui empêchait l'interpolation
     final url = Uri.parse("https://us-central1-messaging-backend-m2i.cloudfunctions.net/api/channels/${channelId}/messages");
 
-    // CORRECTION : Le backend attend 'authorId' et non 'userId'
     final body = convert.json.encode({
-      'authorId': userId,
+      'authorId': authorId,
+      'authorName': authorName,
       'content': content,
+      'serverId': serverId,
     });
 
     final response = await http.post(
@@ -215,5 +218,91 @@ Future<Map<String, dynamic>?> addMessageToChannel({
   } catch (e) {
     print("Une exception est survenue lors de l'envoi du message: ${e}");
     return null;
+  }
+}
+
+
+/*--------------------------------------------REACTIONS----------------------------------------------------------------*/
+
+/// Récupère toutes les réactions pour un message donné.
+Future<Map<String, dynamic>> fetchReactionsForMessage(String messageId) async {
+  try {
+    print("Récupération des réactions pour le message : ${messageId}");
+    final url = Uri.parse("https://us-central1-messaging-backend-m2i.cloudfunctions.net/api/messages/${messageId}/reactions");
+
+    final response = await http.get(url);
+
+    print('Status code (réactions): ${response.statusCode}');
+
+    if (response.statusCode == 200) {
+      final data = convert.json.decode(response.body);
+      if (data is Map<String, dynamic>) {
+        print('Réactions reçues: ${data.keys.length}');
+        return data;
+      }
+    }
+    return {};
+  } catch (e) {
+    print("Une exception est survenue lors de la récupération des réactions: ${e}");
+    return {};
+  }
+}
+
+/// Ajoute une réaction à un message.
+Future<bool> addReactionToMessage({
+  required String messageId,
+  required String userId,
+  required String emoji,
+}) async {
+  try {
+    print("Ajout de la réaction '${emoji}' par ${userId} au message ${messageId}");
+    final url = Uri.parse("https://us-central1-messaging-backend-m2i.cloudfunctions.net/api/messages/${messageId}/reactions");
+
+    final body = convert.json.encode({
+      'userId': userId,
+      'emoji': emoji,
+    });
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: body,
+    );
+
+    print('Status code (ajout réaction): ${response.statusCode}');
+    return response.statusCode == 201 || response.statusCode == 200;
+  } catch (e) {
+    print("Une exception est survenue lors de l'ajout de la réaction: ${e}");
+    return false;
+  }
+}
+
+/// Supprime une réaction d'un message.
+Future<bool> removeReactionFromMessage({
+  required String messageId,
+  required String userId,
+  required String emoji,
+}) async {
+  try {
+    print("Suppression de la réaction '${emoji}' par ${userId} du message ${messageId}");
+    final url = Uri.parse("https://us-central1-messaging-backend-m2i.cloudfunctions.net/api/messages/${messageId}/reactions");
+
+    final body = convert.json.encode({
+      'userId': userId,
+      'emoji': emoji,
+    });
+
+    final response = await http.delete(
+      url,
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: body,
+    );
+
+    print('Status code (suppression réaction): ${response.statusCode}');
+    // Accepte 200 (OK) ou 204 (No Content) comme succès
+    return response.statusCode == 200 || response.statusCode == 204;
+  } catch (e) {
+    print("Une exception est survenue lors de la suppression de la réaction: ${e}");
+    return false;
   }
 }
